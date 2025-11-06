@@ -41,6 +41,18 @@ class Settings(BaseSettings):
     # Redis settings
     REDIS_URL: str = config("REDIS_URL", default="redis://localhost:6379")
     
+    # JWT settings
+    JWT_SECRET_KEY: str = config("JWT_SECRET_KEY", default="your-super-secret-jwt-key-change-in-production")
+    JWT_ALGORITHM: str = config("JWT_ALGORITHM", default="HS256")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = config("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", default=15, cast=int)
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = config("JWT_REFRESH_TOKEN_EXPIRE_DAYS", default=7, cast=int)
+    
+    # Security settings
+    PASSWORD_BCRYPT_ROUNDS: int = config("PASSWORD_BCRYPT_ROUNDS", default=12, cast=int)
+    PASSWORD_MIN_LENGTH: int = config("PASSWORD_MIN_LENGTH", default=8, cast=int)
+    LOGIN_MAX_ATTEMPTS: int = config("LOGIN_MAX_ATTEMPTS", default=5, cast=int)
+    LOGIN_LOCKOUT_MINUTES: int = config("LOGIN_LOCKOUT_MINUTES", default=30, cast=int)
+    
     # CORS settings
     CORS_ORIGINS: str = config("CORS_ORIGINS", default="http://localhost:3000")
     CORS_CREDENTIALS: bool = config("CORS_CREDENTIALS", default=True, cast=bool)

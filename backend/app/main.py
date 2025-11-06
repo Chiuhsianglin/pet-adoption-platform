@@ -4,20 +4,13 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBearer
 from contextlib import asynccontextmanager
 import uvicorn
-from decouple import config
 
 # Import configurations and database
 from app.core.config import settings
-from app.database import engine, Base
-from app.core.middleware import setup_middleware
+from app.database import init_db, close_db
 
 # Import API routers
-from app.api.v1.auth import router as auth_router
-from app.api.v1.pets import router as pets_router
-from app.api.v1.adoptions import router as adoptions_router
-from app.api.v1.chat import router as chat_router
-from app.api.v1.users import router as users_router
-from app.api.v1.files import router as files_router
+from app.api.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -28,18 +21,17 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Pet Adoption Platform API Starting...")
     
-    # Create database tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Initialize database
+    await init_db()
     
-    print("✅ Database tables created/verified")
+    print("✅ Database connection initialized")
     print("🐾 Pet Adoption Platform API Ready!")
     
     yield
     
     # Shutdown
     print("🛑 Pet Adoption Platform API Shutting down...")
-    await engine.dispose()
+    await close_db()
     print("👋 Pet Adoption Platform API Stopped")
 
 
@@ -55,22 +47,22 @@ app = FastAPI(
         {"name": "Authentication", "description": "User authentication and authorization"},
         {"name": "Pets", "description": "Pet management operations"},
         {"name": "Adoptions", "description": "Adoption application management"},
-        {"name": "Chat", "description": "Real-time messaging system"},
-        {"name": "Users", "description": "User profile management"},
-        {"name": "Files", "description": "File upload and management"},
-    ]
+        {"name": "Authentication", "description": "User authentication and authorization"},
+    ],
+    lifespan=lifespan
 )
 
-# Setup middleware
-setup_middleware(app)
+# Setup CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=settings.CORS_CREDENTIALS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # Include API routers
-app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(pets_router, prefix="/api/v1/pets", tags=["Pets"])
-app.include_router(adoptions_router, prefix="/api/v1/adoptions", tags=["Adoptions"])
-app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chat"])
-app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
-app.include_router(files_router, prefix="/api/v1/files", tags=["Files"])
+app.include_router(auth_router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
