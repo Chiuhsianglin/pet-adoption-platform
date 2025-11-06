@@ -12,9 +12,9 @@ from app.database import Base
 
 class UserRole(str, enum.Enum):
     """User role enumeration"""
-    USER = "user"
-    SHELTER_ADMIN = "shelter_admin"
-    SYSTEM_ADMIN = "system_admin"
+    admin = "admin"
+    adopter = "adopter"
+    shelter = "shelter"
 
 
 class User(Base):
@@ -53,6 +53,7 @@ class User(Base):
     room_memberships = relationship("RoomMember", back_populates="user")
     notifications = relationship("Notification", back_populates="user")
     favorites = relationship("UserFavorite", back_populates="user")
+    password_history = relationship("PasswordHistory", back_populates="user", order_by="PasswordHistory.created_at.desc()")
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
@@ -60,12 +61,12 @@ class User(Base):
     @property
     def is_shelter_admin(self) -> bool:
         """Check if user is a shelter admin"""
-        return self.role == UserRole.SHELTER_ADMIN
+        return self.role == UserRole.shelter
     
     @property
     def is_system_admin(self) -> bool:
         """Check if user is a system admin"""
-        return self.role == UserRole.SYSTEM_ADMIN
+        return self.role == UserRole.admin
     
     @property
     def display_name(self) -> str:
