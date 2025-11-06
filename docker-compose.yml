@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - pet-adoption-network
+    command: npm run dev
+
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=mysql+aiomysql://pet_user:pet_password@mysql:3306/pet_adoption
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=your-super-secret-jwt-key-change-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - AWS_ACCESS_KEY_ID=your-aws-access-key
+      - AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+      - AWS_S3_BUCKET=pet-adoption-files
+      - AWS_REGION=us-east-1
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - pet-adoption-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=pet_adoption
+      - MYSQL_USER=pet_user
+      - MYSQL_PASSWORD=pet_password
+      - MYSQL_CHARSET=utf8mb4
+      - MYSQL_COLLATION=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - pet-adoption-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "pet_user", "-ppet_password"]
+      timeout: 20s
+      retries: 10
+      start_period: 40s
+      interval: 10s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pet-adoption-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # PhpMyAdmin (Optional - for database management)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=pet_user
+      - PMA_PASSWORD=pet_password
+      - MYSQL_ROOT_PASSWORD=root_password
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - pet-adoption-network
+    profiles:
+      - tools
+
+  # Redis Commander (Optional - for Redis management)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - pet-adoption-network
+    profiles:
+      - tools
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  pet-adoption-network:
+    driver: bridge
