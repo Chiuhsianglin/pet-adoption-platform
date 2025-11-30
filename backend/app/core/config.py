@@ -61,14 +61,26 @@ class Settings(BaseSettings):
     
     @property
     def cors_origins_list(self) -> List[str]:
-        """Convert CORS_ORIGINS string to list"""
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+        """Convert CORS_ORIGINS string to clean list"""
+        # 支援 JSON list 格式或逗號分隔字串
+        if "[" in self.CORS_ORIGINS and "]" in self.CORS_ORIGINS:
+            import json
+            try:
+                origins = json.loads(self.CORS_ORIGINS)
+                return [o.strip().strip('"').strip("'") for o in origins]
+            except Exception:
+                pass
+        return [origin.strip().strip('"').strip("'") for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
     
     # File upload settings
+    USE_S3: bool = config("USE_S3", default=False, cast=bool)
+    BACKEND_URL: str = config("BACKEND_URL", default="http://localhost:8000")
     AWS_ACCESS_KEY_ID: Optional[str] = config("AWS_ACCESS_KEY_ID", default=None)
     AWS_SECRET_ACCESS_KEY: Optional[str] = config("AWS_SECRET_ACCESS_KEY", default=None)
     AWS_S3_BUCKET: str = config("AWS_S3_BUCKET", default="pet-adoption-files")
-    AWS_REGION: str = config("AWS_REGION", default="us-east-1")
+    AWS_REGION: str = config("AWS_REGION", default="ap-southeast-2")
+    AWS_CLOUDFRONT_DOMAIN: Optional[str] = config("AWS_CLOUDFRONT_DOMAIN", default=None)
     MAX_FILE_SIZE: int = config("MAX_FILE_SIZE", default=10485760, cast=int)  # 10MB
     MAX_PHOTO_SIZE: int = config("MAX_PHOTO_SIZE", default=5242880, cast=int)  # 5MB
     
@@ -94,6 +106,8 @@ class Settings(BaseSettings):
     WEBSOCKET_MAX_CONNECTIONS: int = config("WEBSOCKET_MAX_CONNECTIONS", default=1000, cast=int)
     WEBSOCKET_PING_INTERVAL: int = config("WEBSOCKET_PING_INTERVAL", default=25, cast=int)
     WEBSOCKET_PING_TIMEOUT: int = config("WEBSOCKET_PING_TIMEOUT", default=5, cast=int)
+
+    FRONTEND_URL: str = "http://localhost:3000"
     
     @field_validator("ENVIRONMENT")
     @classmethod

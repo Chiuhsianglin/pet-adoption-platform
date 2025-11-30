@@ -15,6 +15,10 @@ class NotificationType(str, enum.Enum):
     MESSAGE = "message"
     SYSTEM = "system"
     REMINDER = "reminder"
+    REVIEW_STATUS = "review_status"  # Pet review status notifications
+    POST_REPORT = "post_report"  # Post report notifications for admins
+    POST_LIKE = "post_like"  # Someone liked your post
+    POST_COMMENT = "post_comment"  # Someone commented on your post
 
 
 class Notification(Base):
@@ -28,11 +32,9 @@ class Notification(Base):
     # Notification content
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
-    content = Column(Text, nullable=False)
-    type = Column(Enum(NotificationType), nullable=False, index=True)
-    
-    # Related entity (optional)
-    related_id = Column(Integer)  # Can reference any entity (application, message, etc.)
+    message = Column(Text, nullable=False)
+    notification_type = Column(Enum(NotificationType), nullable=True, index=True)
+    link = Column(String(500), nullable=True)  # Link to related resource (e.g., post URL)
     
     # Notification status
     is_read = Column(Boolean, default=False, nullable=False, index=True)
@@ -44,17 +46,7 @@ class Notification(Base):
     user = relationship("User", back_populates="notifications")
     
     def __repr__(self):
-        return f"<Notification(id={self.id}, type='{self.type}', is_read={self.is_read})>"
-    
-    @property
-    def is_application_related(self) -> bool:
-        """Check if notification is application related"""
-        return self.type == NotificationType.APPLICATION_STATUS
-    
-    @property
-    def is_message_related(self) -> bool:
-        """Check if notification is message related"""
-        return self.type == NotificationType.MESSAGE
+        return f"<Notification(id={self.id}, is_read={self.is_read})>"
 
 
 class UserFavorite(Base):

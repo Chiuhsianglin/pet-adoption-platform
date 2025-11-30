@@ -58,7 +58,7 @@ services:
   mysql:
     image: mysql:8.0
     ports:
-      - "3306:3306"
+      - "3307:3306"  # ✅ 改這裡（外部用 3307）
     environment:
       - MYSQL_ROOT_PASSWORD=root_password
       - MYSQL_DATABASE=pet_adoption
@@ -82,7 +82,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"  # ✅ 改這裡（避免與本機 Redis 衝突）
     volumes:
       - redis_data:/data
     networks:

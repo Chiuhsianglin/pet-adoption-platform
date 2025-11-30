@@ -13,11 +13,16 @@ from app.database import Base
 class ApplicationStatus(str, enum.Enum):
     """Adoption application status enumeration"""
     DRAFT = "draft"
+    PENDING = "pending"
     SUBMITTED = "submitted"
-    UNDER_REVIEW = "under_review"
+    DOCUMENT_REVIEW = "document_review"
+    HOME_VISIT_SCHEDULED = "home_visit_scheduled"
+    HOME_VISIT_COMPLETED = "home_visit_completed"
+    UNDER_EVALUATION = "under_evaluation"
     APPROVED = "approved"
     REJECTED = "rejected"
     COMPLETED = "completed"
+    WITHDRAWN = "withdrawn"
 
 
 class AdoptionApplication(Base):
@@ -33,10 +38,11 @@ class AdoptionApplication(Base):
     
     # Related entities
     pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False, index=True)
-    applicant_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    applicant_id = Column(ForeignKey("users.id"))
+    shelter_id = Column(ForeignKey("users.id"))
     
     # Application status
-    status = Column(Enum(ApplicationStatus), default=ApplicationStatus.DRAFT, nullable=False, index=True)
+    status = Column(Enum(ApplicationStatus, values_callable=lambda x: [e.value for e in x]), default=ApplicationStatus.DRAFT, nullable=False, index=True)
     
     # Application data (stored as JSON)
     personal_info = Column(JSON, nullable=False)
@@ -48,6 +54,14 @@ class AdoptionApplication(Base):
     reviewed_by = Column(Integer, ForeignKey("users.id"))
     reviewed_at = Column(DateTime(timezone=True))
     
+    # Home visit information
+    home_visit_date = Column(DateTime(timezone=True))
+    home_visit_notes = Column(Text)
+    home_visit_document = Column(String(500))
+    
+    # Final decision
+    final_decision_notes = Column(Text)
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -56,9 +70,11 @@ class AdoptionApplication(Base):
     # Relationships
     pet = relationship("Pet", back_populates="adoption_applications")
     applicant = relationship("User", back_populates="adoption_applications", foreign_keys=[applicant_id])
+    shelter = relationship("User", foreign_keys=[shelter_id])
     reviewer = relationship("User", foreign_keys=[reviewed_by])
-    chat_room = relationship("ChatRoom", back_populates="application", uselist=False)
-    documents = relationship("ApplicationDocument", back_populates="application", cascade="all, delete-orphan")
+    # Note: Old chat_room relationship removed - using new chat system
+    # chat_room = relationship("ChatRoom", back_populates="application", uselist=False, lazy="select")
+    documents = relationship("ApplicationDocument", back_populates="application", cascade="all, delete-orphan", lazy="select")
     
     def __repr__(self):
         return f"<AdoptionApplication(id={self.id}, application_id='{self.application_id}', status='{self.status}')>"
@@ -103,14 +119,21 @@ class ApplicationDocument(Base):
     # Document information
     document_type = Column(String(50), nullable=False)  # e.g., 'id_card', 'income_proof', 'housing_proof'
     file_name = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=True)  # 使用者原始檔名
     file_url = Column(String(500), nullable=False)
     file_key = Column(String(255), nullable=False)  # S3 key or file identifier
+    file_path = Column(String(500), nullable=True)  # 檔案路徑
     file_size = Column(Integer)  # File size in bytes
     mime_type = Column(String(100))
     
+    # Upload information
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # 上傳者
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
     # Relationships
     application = relationship("AdoptionApplication", back_populates="documents")
     

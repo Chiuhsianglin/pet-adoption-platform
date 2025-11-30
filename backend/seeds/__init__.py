@@ -1,1 +1,0 @@
-# Seeds package for development data

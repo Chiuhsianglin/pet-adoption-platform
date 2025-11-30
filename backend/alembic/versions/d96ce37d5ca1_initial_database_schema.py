@@ -31,8 +31,6 @@ def upgrade() -> None:
         sa.Column('role', sa.Enum('admin', 'adopter', 'shelter', name='userrole'), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=True),
         sa.Column('is_verified', sa.Boolean(), nullable=True),
-        sa.Column('avatar_url', sa.String(length=255), nullable=True),
-        sa.Column('bio', sa.Text(), nullable=True),
         sa.Column('address_line1', sa.String(length=255), nullable=True),
         sa.Column('address_line2', sa.String(length=255), nullable=True),
         sa.Column('city', sa.String(length=100), nullable=True),

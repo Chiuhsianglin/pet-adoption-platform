@@ -45,7 +45,8 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+# Backwards-compatible alias expected by some services
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency to get database session
     
@@ -62,13 +63,18 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+# Preferred name used across the codebase
+get_db = get_async_db
+
+
 async def init_db() -> None:
     """
     Initialize database - create all tables
     """
     async with engine.begin() as conn:
         # Import all models to ensure they are registered
-        from app.models import user, pet, adoption, message, notification  # noqa
+        from app.models import user, pet, adoption, notification, password_history  # noqa
+        from app.models import chat_room, chat_message  # new chat models
         
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
