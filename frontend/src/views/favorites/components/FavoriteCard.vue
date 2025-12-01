@@ -1,5 +1,9 @@
 <template>
-  <div class="favorite-card">
+  <div 
+    class="favorite-card"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
+  >
     <div class="card-image">
       <img 
         :src="petImage" 
@@ -14,7 +18,7 @@
     </div>
 
     <div class="card-content">
-      <h3 class="pet-name">{{ favorite.pet_name }}</h3>
+      <h3 class="pet-name">{{ favorite.pet_name || '未命名寵物' }}</h3>
       
       <div class="pet-info">
         <div class="info-item">
@@ -43,7 +47,7 @@
         查看詳情
       </button>
       <button 
-        @click="handleRemove" 
+        @click="showRemoveDialog = true" 
         class="btn btn-remove"
         :disabled="removing"
         title="取消收藏"
@@ -52,11 +56,25 @@
         {{ removing ? '移除中...' : '取消收藏' }}
       </button>
     </div>
+
+    <!-- 移除確認對話框 -->
+    <ConfirmDialog
+      v-model="showRemoveDialog"
+      type="danger"
+      title="移除收藏"
+      :message="`確定要將「${favorite.pet_name}」從收藏清單中移除嗎？`"
+      confirm-text="移除"
+      cancel-text="取消"
+      loading-text="移除中..."
+      :loading="removing"
+      @confirm="handleRemove"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 interface FavoriteCardProps {
   favorite: {
@@ -75,11 +93,30 @@ const props = defineProps<FavoriteCardProps>()
 const emit = defineEmits<{
   remove: [petId: number]
   'view-details': [petId: number]
+  'prefetch': [petId: number]
 }>()
 
 // State
 const removing = ref(false)
 const imageError = ref(false)
+const showRemoveDialog = ref(false)
+const prefetchTimer = ref<number | null>(null)
+
+// 預加載方法
+const handleMouseEnter = () => {
+  // 滑鼠懸停 300ms 後開始預載
+  prefetchTimer.value = window.setTimeout(() => {
+    emit('prefetch', props.favorite.pet_id)
+  }, 300)
+}
+
+const handleMouseLeave = () => {
+  // 取消預載
+  if (prefetchTimer.value) {
+    clearTimeout(prefetchTimer.value)
+    prefetchTimer.value = null
+  }
+}
 
 // Computed
 const petImage = computed(() => {
@@ -117,7 +154,17 @@ const statusText = computed(() => {
 })
 
 const formattedDate = computed(() => {
+  if (!props.favorite.created_at) {
+    return '最近加入收藏'
+  }
+  
   const date = new Date(props.favorite.created_at)
+  
+  // 檢查日期是否有效
+  if (isNaN(date.getTime())) {
+    return '最近加入收藏'
+  }
+  
   const now = new Date()
   const diffInMs = now.getTime() - date.getTime()
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
@@ -148,16 +195,16 @@ const handleImageError = () => {
 const handleRemove = async () => {
   if (removing.value) return
 
-  if (confirm(`確定要將 ${props.favorite.pet_name} 從收藏清單中移除嗎？`)) {
-    removing.value = true
-    try {
-      emit('remove', props.favorite.pet_id)
-    } finally {
-      // Reset after a short delay even if parent handles the error
-      setTimeout(() => {
-        removing.value = false
-      }, 1000)
-    }
+  removing.value = true
+  try {
+    emit('remove', props.favorite.pet_id)
+    // 成功後關閉對話框
+    setTimeout(() => {
+      showRemoveDialog.value = false
+      removing.value = false
+    }, 500)
+  } catch (error) {
+    removing.value = false
   }
 }
 </script>

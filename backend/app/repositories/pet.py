@@ -108,8 +108,28 @@ class PetRepository(BaseRepository[Pet]):
         count_result = await self.db.execute(count_query)
         total = count_result.scalar()
         
-        # 取得分頁結果
-        query = base_query.order_by(Pet.created_at.desc()).offset(skip).limit(limit)
+        # 處理排序
+        sort_by = filters.get('sort_by', 'created_at')
+        order = filters.get('order', 'desc')
+        
+        # 根據排序欄位選擇對應的資料庫欄位
+        if sort_by == 'age':
+            sort_column = Pet.age_years
+        elif sort_by == 'name':
+            sort_column = Pet.name
+        elif sort_by == 'created_at':
+            sort_column = Pet.created_at
+        else:
+            sort_column = Pet.created_at
+        
+        # 應用排序方向
+        if order == 'asc':
+            query = base_query.order_by(sort_column.asc())
+        else:
+            query = base_query.order_by(sort_column.desc())
+        
+        # 應用分頁
+        query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
         pets = result.scalars().all()
         

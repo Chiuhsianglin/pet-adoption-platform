@@ -9,11 +9,19 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const favorites = ref<any[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const lastFetched = ref<number | null>(null)
+  const CACHE_DURATION = 5 * 60 * 1000 // 5分鐘快取
 
   // Getters
   const favoriteCount = computed(() => favorites.value.length)
 
   const authStore = useAuthStore()
+
+  // 根據用戶 ID 生成 localStorage key
+  const getStorageKey = () => {
+    const userId = authStore.user?.id
+    return userId ? `pet_favorites_${userId}` : 'pet_favorites_guest'
+  }
 
   // Check if a pet is favorited; optional userId to ensure ownership
   const isFavorite = (petId: number, userId?: number) => {
@@ -44,15 +52,31 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   // Actions
-  const loadFavorites = async () => {
-    // Try to load from localStorage first
-    const stored = localStorage.getItem('pet_favorites')
-    if (stored) {
+  const loadFavorites = async (forceRefresh = false) => {
+    const currentUserId = authStore.user?.id
+    
+    // 如果未登入，清空收藏並返回
+    if (!currentUserId) {
+      favorites.value = []
+      return
+    }
+    
+    // 檢查快取是否有效
+    const now = Date.now()
+    if (!forceRefresh && lastFetched.value && (now - lastFetched.value) < CACHE_DURATION) {
+      console.log('✅ Using cached favorites data')
+      return
+    }
+
+    // Try to load from localStorage first (使用用戶專屬的 key)
+    const storageKey = getStorageKey()
+    const stored = localStorage.getItem(storageKey)
+    if (stored && !forceRefresh) {
       try {
         const parsed = JSON.parse(stored)
         // normalize: if array of numbers -> convert to objects with pet_id
         if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'number') {
-          favorites.value = parsed.map((p: number) => ({ pet_id: p }))
+          favorites.value = parsed.map((p: number) => ({ pet_id: p, user_id: currentUserId }))
         } else {
           favorites.value = parsed
         }
@@ -82,8 +106,9 @@ export const useFavoritesStore = defineStore('favorites', () => {
         // Fallback: keep existing local data
       }
 
-      // Sync to localStorage
-      localStorage.setItem('pet_favorites', JSON.stringify(favorites.value))
+      // Sync to localStorage and update last fetched time (使用用戶專屬的 key)
+      localStorage.setItem(storageKey, JSON.stringify(favorites.value))
+      lastFetched.value = Date.now()
     } catch (err: any) {
       // If not authenticated, just use localStorage
       if (err.response?.status !== 401) {
@@ -105,7 +130,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     // Optimistic update: push a lightweight object
     const optimistic = { pet_id: petId, user_id: userId }
     favorites.value.push(optimistic)
-    localStorage.setItem('pet_favorites', JSON.stringify(favorites.value))
+    const storageKey = getStorageKey()
+    localStorage.setItem(storageKey, JSON.stringify(favorites.value))
     console.log('✅ Optimistic update: added to favorites', petId)
 
     try {
@@ -116,13 +142,15 @@ export const useFavoritesStore = defineStore('favorites', () => {
         // find and replace the optimistic by pet_id & maybe user_id
         const idx = favorites.value.findIndex((f: any) => f.pet_id === petId && (!f.id || f.id === resp.data.id || !resp.data.id))
         if (idx !== -1) favorites.value.splice(idx, 1, resp.data)
-        localStorage.setItem('pet_favorites', JSON.stringify(favorites.value))
+        localStorage.setItem(storageKey, JSON.stringify(favorites.value))
       }
+      // 清除快取，強制下次重新載入
+      lastFetched.value = null
     } catch (err: any) {
       console.error('❌ Failed to add favorite:', err.response?.data || err.message)
       // Rollback on error
       favorites.value = favorites.value.filter((f: any) => f.pet_id !== petId || (userId && f.user_id !== userId))
-      localStorage.setItem('pet_favorites', JSON.stringify(favorites.value))
+      localStorage.setItem(storageKey, JSON.stringify(favorites.value))
 
       if (err.response?.status !== 401) {
         error.value = err.response?.data?.detail || 'Failed to add favorite'
@@ -142,17 +170,20 @@ export const useFavoritesStore = defineStore('favorites', () => {
     // Optimistic update
     const previousFavorites = [...favorites.value]
     favorites.value = favorites.value.filter((f: any) => !(f.pet_id === petId && (!userId || f.user_id === userId)))
-    localStorage.setItem('pet_favorites', JSON.stringify(favorites.value))
+    const storageKey = getStorageKey()
+    localStorage.setItem(storageKey, JSON.stringify(favorites.value))
     console.log('✅ Optimistic update: removed from favorites', petId)
 
     try {
       await api.delete(`/pets/${petId}/favorite`)
       console.log('✅ Server confirmed removal')
+      // 清除快取，強制下次重新載入
+      lastFetched.value = null
     } catch (err: any) {
       console.error('❌ Failed to remove favorite:', err.response?.data || err.message)
       // Rollback on error
       favorites.value = previousFavorites
-      localStorage.setItem('pet_favorites', JSON.stringify(favorites.value))
+      localStorage.setItem(storageKey, JSON.stringify(favorites.value))
 
       if (err.response?.status !== 401) {
         error.value = err.response?.data?.detail || 'Failed to remove favorite'
@@ -163,7 +194,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   const clearFavorites = () => {
     favorites.value = []
-    localStorage.removeItem('pet_favorites')
+    // 清除所有可能的 localStorage keys
+    const storageKey = getStorageKey()
+    localStorage.removeItem(storageKey)
+    localStorage.removeItem('pet_favorites') // 清除舊的通用 key
+    lastFetched.value = null
   }
 
   return {

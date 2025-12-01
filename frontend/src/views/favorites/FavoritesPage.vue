@@ -14,8 +14,21 @@
 
     <!-- Loading State -->
     <div v-if="loading" class="loading-container">
-      <div class="spinner"></div>
-      <p>載入中...</p>
+      <!-- 骨架屏 -->
+      <div class="favorites-grid">
+        <div v-for="i in 6" :key="`skeleton-${i}`" class="skeleton-card">
+          <div class="skeleton-image"></div>
+          <div class="skeleton-content">
+            <div class="skeleton-title"></div>
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+          </div>
+          <div class="skeleton-actions">
+            <div class="skeleton-button"></div>
+            <div class="skeleton-button"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Error State -->
@@ -88,6 +101,7 @@
           :favorite="favorite"
           @remove="handleRemoveFavorite"
           @view-details="handleViewDetails"
+          @prefetch="handlePrefetch"
         />
       </div>
 
@@ -193,19 +207,18 @@ const loadFavorites = async () => {
   error.value = null
 
   try {
-    // OPTIMIZED: 使用 Promise 並行請求，不等待圖片預加載
-    const response = await api.get('/pets/favorites', {
-      params: {
-        skip: (currentPage.value - 1) * pageSize.value,
-        limit: pageSize.value
-      }
-    })
-
-    favoritePets.value = response.data.data.items
-    totalFavorites.value = response.data.data.total
-
-    // Also update the favorites store
+    // 使用 store 的快取機制載入數據
     await favoritesStore.loadFavorites()
+    
+    // 從 store 獲取資料，並應用分頁
+    const allFavorites = favoritesStore.favorites
+    console.log('📊 Loaded favorites:', allFavorites)
+    
+    const start = (currentPage.value - 1) * pageSize.value
+    const end = start + pageSize.value
+    
+    favoritePets.value = allFavorites.slice(start, end)
+    totalFavorites.value = allFavorites.length
   } catch (err: any) {
     console.error('Failed to load favorites:', err)
     error.value = err.response?.data?.detail || '載入收藏清單失敗，請稍後再試'
@@ -229,6 +242,16 @@ const handleRemoveFavorite = async (petId: number) => {
 const handleViewDetails = (petId: number) => {
   selectedPetId.value = petId
   showPetDialog.value = true
+}
+
+const handlePrefetch = async (petId: number) => {
+  // 預加載寵物詳情到快取
+  try {
+    await api.get(`/pets/${petId}`)
+  } catch (err) {
+    // 靜默失敗，不影響用戶體驗
+    console.log('Prefetch failed for pet:', petId)
+  }
 }
 
 const applyFilters = () => {
@@ -400,6 +423,82 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+}
+
+/* 骨架屏樣式 */
+.skeleton-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.skeleton-image {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-content {
+  padding: 1rem;
+}
+
+.skeleton-title {
+  height: 24px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+.skeleton-text {
+  height: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-text.short {
+  width: 60%;
+}
+
+.skeleton-actions {
+  padding: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.skeleton-button {
+  flex: 1;
+  height: 40px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
 }
 
 /* Pagination */

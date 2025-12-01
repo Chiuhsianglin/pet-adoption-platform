@@ -296,17 +296,20 @@ const performSearch = async () => {
   try {
     // Update sort in filters
     if (sortBy.value === 'random') {
-      searchComposable.updateFilter('sort_by', 'random')
+      // 隨機排序：不傳遞 sort_by 和 order
+      searchComposable.updateFilter('sort_by', undefined)
       searchComposable.updateFilter('order', undefined)
     } else if (sortBy.value === 'newest') {
       searchComposable.updateFilter('sort_by', 'created_at')
       searchComposable.updateFilter('order', 'desc')
     } else if (sortBy.value === 'age_asc') {
-      searchComposable.updateFilter('sort_by', 'age')
-      searchComposable.updateFilter('order', 'asc')
-    } else if (sortBy.value === 'age_desc') {
+      // 年齡小到大 = 出生年份大到小（年輕的在前）
       searchComposable.updateFilter('sort_by', 'age')
       searchComposable.updateFilter('order', 'desc')
+    } else if (sortBy.value === 'age_desc') {
+      // 年齡大到小 = 出生年份小到大（年長的在前）
+      searchComposable.updateFilter('sort_by', 'age')
+      searchComposable.updateFilter('order', 'asc')
     } else if (sortBy.value === 'name_asc') {
       searchComposable.updateFilter('sort_by', 'name')
       searchComposable.updateFilter('order', 'asc')

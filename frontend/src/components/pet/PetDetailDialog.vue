@@ -4,6 +4,7 @@
     @update:model-value="$emit('update:modelValue', $event)"
     max-width="80vw"
     scrollable
+    :transition="false"
   >
     <v-card v-if="petId" style="max-height: 80vh;">
       <v-toolbar color="primary" dark>
@@ -14,7 +15,7 @@
       </v-toolbar>
       <v-card-text class="pa-0">
         <v-container>
-          <PetDetailContent :pet-id="petId" @close="$emit('update:modelValue', false)" />
+          <PetDetailContent v-if="modelValue" :pet-id="petId" :in-dialog="true" @close="$emit('update:modelValue', false)" />
         </v-container>
       </v-card-text>
     </v-card>

@@ -2,7 +2,7 @@
 Adoptions API V2 - 簡化版本
 """
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Body, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -31,40 +31,34 @@ def _serialize_application(app) -> Dict[str, Any]:
     pet_data = None
     if hasattr(app, 'pet') and app.pet:
         from app.services.s3 import S3Service
-        from app.core.config import settings
-        import traceback
         
         s3_service = S3Service()
         pet = app.pet
         
+        # 優化：批量收集所有需要生成 URL 的 file_keys
+        file_keys_map = {}
+        if hasattr(pet, 'photos') and pet.photos:
+            for photo in pet.photos:
+                if hasattr(photo, 'file_key') and photo.file_key:
+                    file_keys_map[photo.id] = photo.file_key
+        
+        # 批量生成所有 presigned URLs
+        presigned_urls = {}
+        for photo_id, file_key in file_keys_map.items():
+            try:
+                presigned_urls[photo_id] = s3_service.generate_presigned_url(
+                    file_key,
+                    expiration=604800  # 7天
+                )
+            except Exception as e:
+                print(f"⚠️ Failed to generate presigned URL for {file_key}: {e}")
+        
         # 序列化所有照片
         photos_data = []
         if hasattr(pet, 'photos') and pet.photos:
-            print(f"\n🔍 Generating URLs for {len(pet.photos)} photos:")
-            print(f"   USE_S3: {settings.USE_S3}")
-            print(f"   S3 Client exists: {s3_service.s3_client is not None}")
-            
             for photo in pet.photos:
-                file_url = None
+                file_url = presigned_urls.get(photo.id)
                 file_key = photo.file_key if hasattr(photo, 'file_key') else None
-                
-                if file_key:
-                    try:
-                        print(f"   🔑 Generating URL for: {file_key}")
-                        file_url = s3_service.generate_presigned_url(
-                            file_key,
-                            expiration=604800  # 7 天
-                        )
-                        if file_url:
-                            print(f"   ✅ URL generated (length: {len(file_url)})")
-                        else:
-                            print(f"   ⚠️ URL is None (S3 may be disabled or error occurred)")
-                    except Exception as e:
-                        print(f"   ❌ Failed to generate presigned URL for {file_key}:")
-                        print(f"      Error: {e}")
-                        traceback.print_exc()
-                else:
-                    print(f"   ⚠️ Photo {photo.id} has no file_key")
                 
                 photos_data.append({
                     "id": photo.id,
@@ -93,24 +87,24 @@ def _serialize_application(app) -> Dict[str, Any]:
         
         s3_service = S3Service()
         
+        # 優化：批量生成文件 URLs
+        doc_keys_map = {}
         for doc in app.documents:
-            # 總是嘗試生成新的預簽名 URL（如果使用 S3）
-            file_url = None
-            
             if doc.file_key:
-                if s3_service.use_s3 and s3_service.s3_client:
-                    # S3 模式，生成預簽名 URL
-                    try:
-                        file_url = s3_service.generate_presigned_url(doc.file_key, expiration=86400)
-                    except Exception as e:
-                        print(f"⚠️ Failed to generate presigned URL for document {doc.file_key}: {e}")
-                        file_url = doc.file_url if hasattr(doc, 'file_url') else None
-                else:
-                    # S3 未啟用，使用原始 URL
-                    file_url = doc.file_url if hasattr(doc, 'file_url') else None
-            else:
-                # 沒有 file_key，使用原始 URL
-                file_url = doc.file_url if hasattr(doc, 'file_url') else None
+                doc_keys_map[doc.id] = doc.file_key
+        
+        doc_presigned_urls = {}
+        for doc_id, file_key in doc_keys_map.items():
+            try:
+                doc_presigned_urls[doc_id] = s3_service.generate_presigned_url(
+                    file_key, 
+                    expiration=86400  # 24小時
+                )
+            except Exception as e:
+                print(f"⚠️ Failed to generate presigned URL for document {file_key}: {e}")
+        
+        for doc in app.documents:
+            file_url = doc_presigned_urls.get(doc.id) or (doc.file_url if hasattr(doc, 'file_url') else None)
             
             documents_data.append({
                 "id": doc.id,
@@ -318,10 +312,13 @@ async def get_application(
 async def list_applications(
     status: Optional[str] = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    response: Response = None
 ) -> Dict[str, Any]:
     """列出申請（根據角色）"""
     try:
+        from fastapi import Response
+        
         print(f"🔍 List applications - User: {current_user.id}, Role: {current_user.role}, Status filter: {status}")
         service = AdoptionServiceFactory.create(db)
         
@@ -338,6 +335,11 @@ async def list_applications(
             raise HTTPException(status_code=403, detail="Invalid role")
         
         print(f"✅ Found {len(applications)} applications")
+        
+        # 設置快取頭 - 2分鐘瀏覽器快取
+        if response:
+            response.headers["Cache-Control"] = "private, max-age=120, stale-while-revalidate=240"
+        
         # 返回格式與前端兼容
         return {
             "applications": [_serialize_application(app) for app in applications],

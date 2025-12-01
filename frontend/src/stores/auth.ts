@@ -101,6 +101,14 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.removeItem('auth_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user')
+      
+      // 清除所有用戶相關的 localStorage 數據
+      // 清除收藏數據（支援舊格式和新格式）
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('pet_favorites')) {
+          localStorage.removeItem(key)
+        }
+      })
     }
   }
 

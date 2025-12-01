@@ -77,6 +77,10 @@ class PetService:
             search_filters["energy_level"] = filters["energy_level"]
         if "max_adoption_fee" in filters:
             search_filters["max_adoption_fee"] = filters["max_adoption_fee"]
+        if "sort_by" in filters:
+            search_filters["sort_by"] = filters["sort_by"]
+        if "order" in filters:
+            search_filters["order"] = filters["order"]
         
         # 搜尋寵物並計算總數
         pets, total = await self.pet_repo.search_pets_with_count(search_filters, skip, limit)

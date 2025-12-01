@@ -378,7 +378,7 @@ async function loadApplications() {
 
   try {
     const response = await api.get('/adoptions/applications', {
-      timeout: 30000 // 30 seconds timeout
+      timeout: 60000 // 增加到 60 秒 timeout
     })
     const apps = response.data.applications || []
     
@@ -391,10 +391,11 @@ async function loadApplications() {
     console.error('Failed to load applications:', err)
     console.error('Error response:', err.response)
     console.error('Error message:', err.message)
-    console.error('Error config:', err.config)
     
     // 提供更友善的錯誤訊息
-    if (err.message === 'Network Error') {
+    if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+      error.value = '載入時間過長，請稍後再試或聯繫管理員'
+    } else if (err.message === 'Network Error') {
       error.value = '無法連接到後端服務，請確認後端服務是否正在運行'
     } else {
       error.value = err.response?.data?.detail || err.message || '載入申請列表失敗'

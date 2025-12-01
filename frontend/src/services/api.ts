@@ -11,6 +11,11 @@ import { getApiConfig } from '@/config/api'
 
 // 使用 V2 API 配置
 const apiConfig = getApiConfig()
+
+// 簡單的請求快取
+const requestCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5分鐘
+
 const api: AxiosInstance = axios.create({
   baseURL: apiConfig.baseURL,
   timeout: apiConfig.timeout,
@@ -32,6 +37,25 @@ api.interceptors.request.use(
       delete config.headers['Content-Type']
     }
     
+    // GET 請求啟用快取檢查
+    if (config.method === 'get') {
+      const cacheKey = `${config.url}?${JSON.stringify(config.params || {})}`
+      const cached = requestCache.get(cacheKey)
+      
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        // 使用快取的數據
+        config.adapter = () => {
+          return Promise.resolve({
+            data: cached.data,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: config,
+          } as AxiosResponse)
+        }
+      }
+    }
+    
     return config
   },
   (error: AxiosError) => Promise.reject(error)
@@ -39,7 +63,17 @@ api.interceptors.request.use(
 
 // ✅ Response interceptor - 統一錯誤處理
 api.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    // 快取 GET 請求的響應
+    if (response.config.method === 'get') {
+      const cacheKey = `${response.config.url}?${JSON.stringify(response.config.params || {})}`
+      requestCache.set(cacheKey, {
+        data: response.data,
+        timestamp: Date.now()
+      })
+    }
+    return response
+  },
   async (error: AxiosError<any>) => {
     const notificationStore = useNotificationStore()
     const authStore = useAuthStore()

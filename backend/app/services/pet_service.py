@@ -61,15 +61,31 @@ async def search_pets(session: AsyncSession, payload: Dict[str, Any]) -> Dict[st
         else:
             filters.append(Pet.size == vals)
 
+    # 年龄筛选：age_years 和 age_months 存储的是出生年月，需要计算实际年龄
+    # 计算出生日期对应的年龄范围
+    from datetime import datetime
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    
     if payload.get("min_age") is not None:
         try:
-            filters.append(Pet.age_years >= int(payload.get("min_age")))
+            min_age = int(payload.get("min_age"))
+            # 最小年龄：宠物出生年份不能晚于 (当前年份 - 最小年龄)
+            # 例如：最小年龄 6 岁，当前 2025 年，则出生年份 <= 2019
+            max_birth_year = current_year - min_age
+            # 考虑月份：如果出生年份等于最大出生年份，月份必须 <= 当前月份
+            # 但为了简化，我们用更宽松的条件
+            filters.append(Pet.age_years <= max_birth_year)
         except Exception:
             pass
 
     if payload.get("max_age") is not None:
         try:
-            filters.append(Pet.age_years <= int(payload.get("max_age")))
+            max_age = int(payload.get("max_age"))
+            # 最大年龄：宠物出生年份不能早于 (当前年份 - 最大年龄)
+            # 例如：最大年龄 20 岁，当前 2025 年，则出生年份 >= 2005
+            min_birth_year = current_year - max_age
+            filters.append(Pet.age_years >= min_birth_year)
         except Exception:
             pass
 

@@ -12,6 +12,7 @@
               height="500"
               cover
               class="pet-main-photo"
+              eager
             >
               <template v-slot:placeholder>
                 <v-row
@@ -76,6 +77,7 @@
                   class="cursor-pointer thumbnail"
                   :class="{ 'thumbnail-active': selectedPhotoIndex === index }"
                   @click="selectedPhotoIndex = index"
+                  lazy-src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3C/svg%3E"
                 ></v-img>
               </v-col>
             </v-row>
@@ -402,6 +404,7 @@ import { createOrGetChatRoom } from '@/api/chat'
 const props = defineProps<{
   petId: number
   inDialog?: boolean
+  initialData?: any  // 從列表頁傳入的初始數據
 }>()
 
 const emit = defineEmits<{
@@ -412,8 +415,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 const favoritesStore = useFavoritesStore()
 
-const pet = ref<any>(null)
-const loading = ref(true)
+const pet = ref<any>(props.initialData || null)  // 如果有初始數據，立即使用
+const loading = ref(!props.initialData)  // 有初始數據就不顯示載入中
 const error = ref<string | null>(null)
 const selectedPhotoIndex = ref(0)
 const activeTab = ref('details')
@@ -432,25 +435,48 @@ const isFavorite = computed(() => {
   return favoritesStore.isFavorite(props.petId)
 })
 
+// 簡單的記憶體快取
+const petCache = new Map<number, any>()
+const CACHE_DURATION = 5 * 60 * 1000 // 5 分鐘
+
 onMounted(() => {
   fetchPetDetails()
 })
 
 const fetchPetDetails = async () => {
   try {
+    // 如果已有初始數據，先設置 loading 為 false 讓畫面立即顯示
+    if (props.initialData && !pet.value) {
+      pet.value = props.initialData
+    }
+    
     loading.value = true
     error.value = null
+    
+    // 先檢查快取
+    const cached = petCache.get(props.petId)
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+      pet.value = cached.data
+      loading.value = false
+      return
+    }
     
     const response = await apiClient.get(`/pets/${props.petId}`)
     pet.value = response.data.data
     
-    // Preload only first 3 images for faster initial display
+    // 快取數據
+    petCache.set(props.petId, {
+      data: pet.value,
+      timestamp: Date.now()
+    })
+    
+    // 只預載主照片，其他照片懶加載
     if (pet.value?.photos && pet.value.photos.length > 0) {
-      const photosToPreload = pet.value.photos.slice(0, 3)
-      photosToPreload.forEach((photo: any) => {
+      const primaryPhoto = pet.value.photos.find((p: any) => p.is_primary) || pet.value.photos[0]
+      if (primaryPhoto?.file_url) {
         const img = new Image()
-        img.src = photo.file_url
-      })
+        img.src = primaryPhoto.file_url
+      }
     }
   } catch (err: any) {
     console.error('Error fetching pet details:', err)

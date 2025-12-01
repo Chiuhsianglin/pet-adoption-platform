@@ -106,44 +106,7 @@
         </v-expansion-panel>
       </v-expansion-panels>
 
-      <!-- Age Range Filter -->
-      <v-expansion-panels variant="accordion" class="mb-4">
-        <v-expansion-panel>
-          <v-expansion-panel-title>
-            <div class="d-flex justify-space-between w-100">
-              <span>🎂 年齡</span>
-              <v-chip 
-                v-if="ageRange[0] > 0 || ageRange[1] < 20" 
-                size="x-small" 
-                color="primary"
-                class="mr-2"
-              >
-                1
-              </v-chip>
-            </div>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <div class="px-2">
-              <div class="text-caption mb-2">
-                {{ ageRange[0] }}歲 - {{ ageRange[1] }}歲
-              </div>
-              <v-range-slider
-                v-model="ageRange"
-                :min="0"
-                :max="20"
-                :step="1"
-                thumb-label
-                hide-details
-                color="primary"
-              >
-                <template #thumb-label="{ modelValue }">
-                  {{ modelValue }}歲
-                </template>
-              </v-range-slider>
-            </div>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+      
 
       <!-- Health & Behavior Filters -->
       <v-expansion-panels variant="accordion" class="mb-4">
@@ -430,11 +393,9 @@ const buildFilters = (): PetSearchFilters => {
     filters.size = selectedSizes.value
   }
   
-  if (ageRange.value[0] > 0) {
+  // 年齡篩選：只要不是預設範圍 (0-20) 就發送
+  if (ageRange.value[0] > 0 || ageRange.value[1] < 20) {
     filters.min_age = ageRange.value[0]
-  }
-  
-  if (ageRange.value[1] < 20) {
     filters.max_age = ageRange.value[1]
   }
   

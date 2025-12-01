@@ -2,7 +2,7 @@
 Pets API V2 - 簡化版本（使用 dict 返回，不依賴複雜schema）
 """
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import inspect
 from pydantic import BaseModel
@@ -72,22 +72,27 @@ def _serialize_pet(pet, include_photos: bool = False) -> Dict[str, Any]:
     # 序列化所有照片（如果需要）
     photos_list = []
     if include_photos and hasattr(pet, 'photos') and pet.photos:
+        # 優化：批量收集所有 file_keys，一次性生成 URLs
+        file_keys_map = {}
         for photo in pet.photos:
-            file_url = None
             if hasattr(photo, 'file_key') and photo.file_key:
-                if s3_service.use_s3 and s3_service.s3_client:
-                    try:
-                        # 總是生成新的預簽名 URL（24小時有效期）
-                        file_url = s3_service.generate_presigned_url(
-                            photo.file_key,
-                            expiration=86400  # 24 小時
-                        )
-                    except Exception as e:
-                        print(f"⚠️ Failed to generate presigned URL for {photo.file_key}: {e}")
-                        file_url = getattr(photo, 'file_url', None)
-                else:
-                    # S3 未啟用，使用原始 URL
-                    file_url = getattr(photo, 'file_url', None)
+                file_keys_map[photo.id] = photo.file_key
+        
+        # 批量生成 presigned URLs
+        presigned_urls = {}
+        if s3_service.use_s3 and s3_service.s3_client:
+            for photo_id, file_key in file_keys_map.items():
+                try:
+                    presigned_urls[photo_id] = s3_service.generate_presigned_url(
+                        file_key,
+                        expiration=86400  # 24 小時
+                    )
+                except Exception as e:
+                    print(f"⚠️ Failed to generate presigned URL for {file_key}: {e}")
+        
+        # 組裝照片列表
+        for photo in pet.photos:
+            file_url = presigned_urls.get(photo.id) or getattr(photo, 'file_url', None)
             
             photos_list.append({
                 "id": photo.id,
@@ -563,35 +568,49 @@ async def get_user_favorites(
         result = await db.execute(query)
         favorites_with_pets = result.all()
         
+        # 優化：批量收集所有需要生成 URL 的 file_keys
+        file_keys_to_generate = []
+        pet_photo_map = {}  # pet_id -> file_key 的映射
+        
+        for favorite, pet in favorites_with_pets:
+            if hasattr(pet, 'photos') and pet.photos:
+                # 優先找主照片
+                primary_photo = None
+                for photo in pet.photos:
+                    if getattr(photo, 'is_primary', False) and hasattr(photo, 'file_key') and photo.file_key:
+                        primary_photo = photo
+                        break
+                
+                # 沒有主照片則使用第一張
+                if not primary_photo and len(pet.photos) > 0:
+                    first_photo = pet.photos[0]
+                    if hasattr(first_photo, 'file_key') and first_photo.file_key:
+                        primary_photo = first_photo
+                
+                if primary_photo:
+                    file_keys_to_generate.append(primary_photo.file_key)
+                    pet_photo_map[favorite.pet_id] = primary_photo.file_key
+        
+        # 批量生成所有 presigned URLs（一次性操作）
+        presigned_urls = {}
+        for file_key in file_keys_to_generate:
+            try:
+                presigned_urls[file_key] = s3_service.generate_presigned_url(
+                    file_key,
+                    expiration=604800  # 7天
+                )
+            except Exception as e:
+                print(f"Failed to generate presigned URL for {file_key}: {e}")
+                presigned_urls[file_key] = None
+        
         # 序列化收藏項目
         items = []
         for favorite, pet in favorites_with_pets:
-            # 獲取主照片 URL
+            # 從預生成的 URL map 中獲取照片 URL
             primary_photo_url = None
-            if hasattr(pet, 'photos') and pet.photos:
-                for photo in pet.photos:
-                    if getattr(photo, 'is_primary', False):
-                        if hasattr(photo, 'file_key') and photo.file_key:
-                            try:
-                                primary_photo_url = s3_service.generate_presigned_url(
-                                    photo.file_key,
-                                    expiration=604800
-                                )
-                            except Exception:
-                                pass
-                        break
-                
-                # 如果沒有主照片，使用第一張
-                if not primary_photo_url and len(pet.photos) > 0:
-                    first_photo = pet.photos[0]
-                    if hasattr(first_photo, 'file_key') and first_photo.file_key:
-                        try:
-                            primary_photo_url = s3_service.generate_presigned_url(
-                                first_photo.file_key,
-                                expiration=604800
-                            )
-                        except Exception:
-                            pass
+            if favorite.pet_id in pet_photo_map:
+                file_key = pet_photo_map[favorite.pet_id]
+                primary_photo_url = presigned_urls.get(file_key)
             
             items.append({
                 "pet_id": favorite.pet_id,
@@ -624,6 +643,7 @@ async def get_user_favorites(
 @router.get("/{pet_id}")
 async def get_pet(
     pet_id: int,
+    response: Response,
     current_user = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
@@ -653,6 +673,10 @@ async def get_pet(
             is_favorited = result.scalar_one_or_none() is not None
         
         pet_data["is_favorited"] = is_favorited
+        
+        # 設置快取頭 - 5分鐘瀏覽器快取
+        response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=600"
+        response.headers["ETag"] = f'"{pet_id}-{pet.updated_at.timestamp() if hasattr(pet, "updated_at") else ""}"'
         
         # 返回與 V1 兼容的格式
         return {"data": pet_data}
@@ -743,6 +767,8 @@ class SearchPetsRequest(BaseModel):
     good_with_pets: Optional[bool] = None
     energy_level: Optional[str] = None
     max_adoption_fee: Optional[float] = None
+    sort_by: Optional[str] = None
+    order: Optional[str] = None
     skip: Optional[int] = 0
     limit: Optional[int] = 20
     page: Optional[int] = 1
@@ -788,6 +814,10 @@ async def search_pets(
             filters['energy_level'] = request.energy_level
         if request.max_adoption_fee is not None:
             filters['max_adoption_fee'] = request.max_adoption_fee
+        if request.sort_by:
+            filters['sort_by'] = request.sort_by
+        if request.order:
+            filters['order'] = request.order
             
         result = await service.search_pets(filters)
         
