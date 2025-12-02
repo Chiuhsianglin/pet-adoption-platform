@@ -3,7 +3,8 @@ Authentication module initialization
 """
 from .jwt_handler import JWTHandler, jwt_handler
 from .password_handler import PasswordHandler, password_handler
-from .auth_service import AuthService, auth_service
+from .auth_service import AuthService
+from .auth_factory import AuthServiceFactory
 from .dependencies import (
     get_current_user, 
     get_current_active_user, 
@@ -22,7 +23,7 @@ __all__ = [
     "PasswordHandler", 
     "password_handler",
     "AuthService",
-    "auth_service",
+    "AuthServiceFactory",
     "get_current_user",
     "get_current_active_user",
     "get_current_verified_user",
