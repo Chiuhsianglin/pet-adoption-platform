@@ -17,12 +17,12 @@ from app.repositories import (
     PhotoRepository,
 )
 
-# Import new service classes
-from app.services.adoption_service_new import AdoptionService
-from app.services.pet_service_new import PetService
-from app.services.notification_service_new import NotificationService
-from app.services.chat_service_new import ChatService
-from app.services.community_service_new import CommunityService
+# Import service classes
+from app.services.adoption_service import AdoptionService
+from app.services.pet_service import PetService
+from app.services.notification_service import NotificationService
+from app.services.chat_service import ChatService
+from app.services.community_service import CommunityService
 
 
 class AdoptionServiceFactory:

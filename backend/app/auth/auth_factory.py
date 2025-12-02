@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.user import UserRepository
 from app.repositories.password_history import PasswordHistoryRepository
-from app.auth.auth_service_new import AuthServiceNew
+from app.auth.auth_service import AuthService
 
 
 class AuthServiceFactory:
@@ -16,7 +16,7 @@ class AuthServiceFactory:
     """
     
     @staticmethod
-    def create(db: AsyncSession) -> AuthServiceNew:
+    def create(db: AsyncSession) -> AuthService:
         """
         創建 AuthService 實例
         
@@ -24,14 +24,14 @@ class AuthServiceFactory:
             db: 資料庫 session
             
         Returns:
-            AuthServiceNew 實例
+            AuthService 實例
         """
         # 創建 Repository 實例
         user_repo = UserRepository(db)
         password_history_repo = PasswordHistoryRepository(db)
         
         # 創建並返回 Service 實例
-        return AuthServiceNew(
+        return AuthService(
             user_repo=user_repo,
             password_history_repo=password_history_repo
         )
