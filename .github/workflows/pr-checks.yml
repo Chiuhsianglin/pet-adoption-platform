@@ -76,7 +76,7 @@ jobs:
         working-directory: ./backend
         env:
           DATABASE_URL: mysql+aiomysql://root:root@127.0.0.1:3306/pet_adoption_test
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'test-secret-key-for-ci-cd-only-do-not-use-in-production' }}
           ENVIRONMENT: test
         run: |
           pytest -n auto --cov=app --cov-report=term -v
