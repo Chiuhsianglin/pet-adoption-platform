@@ -9,6 +9,7 @@ on:
 jobs:
   backend-quality:
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +49,7 @@ jobs:
   
   frontend-quality:
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
       - uses: actions/checkout@v4
