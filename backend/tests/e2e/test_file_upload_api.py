@@ -1,6 +1,6 @@
 """
 File Upload API E2E Tests
-測試檔案上傳功能的端對端場景
+測試檔�?上傳?�能?�端對端?�景
 """
 import pytest
 from httpx import AsyncClient
@@ -8,14 +8,14 @@ from io import BytesIO
 
 
 class TestFileUploadAPI:
-    """檔案上傳 API 測試"""
+    """檔�?上傳 API 測試"""
     
     @pytest.mark.asyncio
     async def test_upload_single_image_success(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試成功上傳單張圖片"""
-        # 創建測試圖片
+        """測試?��?上傳?�張?��?"""
+        # ?�建測試?��?
         image_data = b"fake_image_content_jpg"
         files = {
             "files": ("test_pet.jpg", BytesIO(image_data), "image/jpeg")
@@ -26,7 +26,7 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
         assert response.status_code == 200
@@ -39,9 +39,9 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_multiple_images_success(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試成功上傳多張圖片"""
+        """測試?��?上傳多張?��?"""
         files = [
             ("files", ("pet1.jpg", BytesIO(b"image1"), "image/jpeg")),
             ("files", ("pet2.png", BytesIO(b"image2"), "image/png")),
@@ -53,7 +53,7 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
         assert response.status_code == 200
@@ -66,9 +66,9 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_document_success(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試成功上傳文件"""
+        """測試?��?上傳?�件"""
         files = {
             "files": ("adoption_form.pdf", BytesIO(b"pdf_content"), "application/pdf")
         }
@@ -78,7 +78,7 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
         assert response.status_code == 200
@@ -89,9 +89,9 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_profile_photo_success(
-        self, async_client: AsyncClient, adopter_headers: dict
+        self, async_client: AsyncClient, adopter_auth_headers: dict
     ):
-        """測試成功上傳個人頭像"""
+        """測試?��?上傳?�人?��?"""
         files = {
             "files": ("avatar.jpg", BytesIO(b"avatar_content"), "image/jpeg")
         }
@@ -101,7 +101,7 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=adopter_headers
+            headers=adopter_auth_headers
         )
         
         assert response.status_code == 200
@@ -110,9 +110,9 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_invalid_file_type(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試上傳不允許的檔案類型"""
+        """測試上傳不�?許�?檔�?類�?"""
         files = {
             "files": ("malware.exe", BytesIO(b"executable"), "application/x-msdownload")
         }
@@ -122,7 +122,7 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
         assert response.status_code == 400
@@ -130,9 +130,9 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_invalid_category(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試使用無效的分類"""
+        """測試使用?��??��?�?""
         files = {
             "files": ("test.jpg", BytesIO(b"image"), "image/jpeg")
         }
@@ -142,7 +142,7 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
         assert response.status_code == 400
@@ -150,7 +150,7 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_without_authentication(self, async_client: AsyncClient):
-        """測試未認證用戶上傳檔案"""
+        """測試?��?證用?��??��?�?""
         files = {
             "files": ("test.jpg", BytesIO(b"image"), "image/jpeg")
         }
@@ -166,9 +166,9 @@ class TestFileUploadAPI:
     
     @pytest.mark.asyncio
     async def test_upload_empty_file(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試上傳空檔案"""
+        """測試上傳空�?�?""
         files = {
             "files": ("empty.jpg", BytesIO(b""), "image/jpeg")
         }
@@ -178,19 +178,19 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
-        # 應該成功但可能有警告，或根據實作拒絕
-        # 這裡假設系統允許空檔案上傳
+        # ?�該?��?但可?��?警�?，�??��?實�??��?
+        # ?�裡?�設系統?�許空�?案�???
         assert response.status_code in [200, 400]
     
     @pytest.mark.asyncio
     async def test_upload_large_file(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試上傳大檔案（如果有大小限制）"""
-        # 創建 11MB 的檔案（假設限制是 10MB）
+        """測試上傳大�?案�?如�??�大小�??��?"""
+        # ?�建 11MB ?��?案�??�設?�制??10MB�?
         large_data = b"x" * (11 * 1024 * 1024)
         files = {
             "files": ("large.jpg", BytesIO(large_data), "image/jpeg")
@@ -201,18 +201,18 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
-        # 根據實作，可能成功或失敗
-        # 這裡我們只驗證系統有處理大檔案的能力
+        # ?��?實�?，可?��??��?失�?
+        # ?�裡?�們只驗�?系統?��??�大檔�??�能??
         assert response.status_code in [200, 400, 413]
     
     @pytest.mark.asyncio
     async def test_upload_mixed_valid_invalid_files(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試同時上傳有效和無效的檔案"""
+        """測試?��?上傳?��??�無?��?檔�?"""
         files = [
             ("files", ("valid.jpg", BytesIO(b"image"), "image/jpeg")),
             ("files", ("invalid.exe", BytesIO(b"exe"), "application/x-msdownload")),
@@ -223,19 +223,19 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
-        # 應該拒絕整個請求
+        # ?�該?��??�個�?�?
         assert response.status_code == 400
     
     @pytest.mark.asyncio
     async def test_upload_file_with_special_characters_in_name(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試上傳包含特殊字元的檔案名稱"""
+        """測試上傳?�含?��?字�??��?案�?�?""
         files = {
-            "files": ("寵物照片 (1).jpg", BytesIO(b"image"), "image/jpeg")
+            "files": ("寵物?��? (1).jpg", BytesIO(b"image"), "image/jpeg")
         }
         data = {"category": "pet_photo"}
         
@@ -243,23 +243,23 @@ class TestFileUploadAPI:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
         assert response.status_code == 200
-        # 系統應該處理特殊字元（可能會清理或編碼）
+        # 系統?�該?��??��?字�?（可?��?清�??�編碼�?
         result = response.json()
         assert len(result["uploaded_files"]) == 1
 
 
 class TestFileUploadSecurity:
-    """檔案上傳安全性測試"""
+    """檔�?上傳安全?�測�?""
     
     @pytest.mark.asyncio
     async def test_upload_file_with_path_traversal_attempt(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試路徑遍歷攻擊防護"""
+        """測試路�??�歷?��??�護"""
         files = {
             "files": ("../../../etc/passwd", BytesIO(b"hack"), "image/jpeg")
         }
@@ -269,20 +269,20 @@ class TestFileUploadSecurity:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
-        # 系統應該清理檔案名稱或拒絕
+        # 系統?�該清�?檔�??�稱?��?�?
         if response.status_code == 200:
             result = response.json()
-            # 檔案名稱不應該包含路徑遍歷字元
+            # 檔�??�稱不�?該�??�路徑�?歷�???
             assert "../" not in result["uploaded_files"][0]["filename"]
     
     @pytest.mark.asyncio
     async def test_upload_file_with_null_byte_injection(
-        self, async_client: AsyncClient, shelter_headers: dict
+        self, async_client: AsyncClient, shelter_auth_headers: dict
     ):
-        """測試 null byte 注入防護"""
+        """測試 null byte 注入?�護"""
         files = {
             "files": ("test.jpg\x00.exe", BytesIO(b"image"), "image/jpeg")
         }
@@ -292,10 +292,10 @@ class TestFileUploadSecurity:
             "/api/v2/files/upload",
             files=files,
             data=data,
-            headers=shelter_headers
+            headers=shelter_auth_headers
         )
         
-        # 系統應該清理或拒絕包含 null byte 的檔案名稱
+        # 系統?�該清�??��?絕�???null byte ?��?案�?�?
         assert response.status_code in [200, 400]
         if response.status_code == 200:
             result = response.json()
