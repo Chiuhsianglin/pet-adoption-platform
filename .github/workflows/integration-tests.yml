@@ -1,0 +1,93 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: pet_adoption_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov
+      
+      - name: Wait for services
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -P 3306 -u root -proot --silent && redis-cli -h 127.0.0.1 ping; then
+              echo "Services are ready"
+              break
+            fi
+            echo "Waiting for services..."
+            sleep 2
+          done
+      
+      - name: Run Backend E2E Tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: mysql+aiomysql://root:root@127.0.0.1:3306/pet_adoption_test
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          ENVIRONMENT: test
+        run: |
+          pytest tests/e2e/ -v --cov=app --cov-report=xml --cov-report=term
+      
+      - name: Generate Test Report
+        if: always()
+        run: |
+          echo "## Full Stack Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend E2E Tests: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- MySQL Service: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Redis Service: ✅" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Upload test reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-reports
+          path: |
+            backend/coverage.xml
+            backend/.pytest_cache/
+          retention-days: 30

@@ -1,5 +1,11 @@
 # 🐾 Pet Adoption Platform
 
+![Backend Tests](https://github.com/Chiuhsianglin/pet-adoption-platform/workflows/Backend%20Tests/badge.svg)
+![Frontend Tests](https://github.com/Chiuhsianglin/pet-adoption-platform/workflows/Frontend%20Tests/badge.svg)
+![Integration Tests](https://github.com/Chiuhsianglin/pet-adoption-platform/workflows/Integration%20Tests/badge.svg)
+![Code Quality](https://github.com/Chiuhsianglin/pet-adoption-platform/workflows/Code%20Quality/badge.svg)
+[![codecov](https://codecov.io/gh/Chiuhsianglin/pet-adoption-platform/branch/main/graph/badge.svg)](https://codecov.io/gh/Chiuhsianglin/pet-adoption-platform)
+
 A comprehensive pet adoption management system built with Vue.js frontend and FastAPI backend, designed to streamline the pet adoption process and connect loving homes with pets in need.
 
 ## 📋 Project Overview
@@ -195,6 +201,64 @@ Install pre-commit hooks to ensure code quality:
 pip install pre-commit
 pre-commit install
 ```
+
+## 🧪 Testing
+
+### Test Coverage
+
+- **Backend Tests**: 564 tests (Unit: 337, Integration: 139, E2E: 88)
+- **Frontend Tests**: 23 tests
+- **Overall Coverage**: ~80%
+
+### Running Tests Locally
+
+#### Backend Tests
+
+```bash
+cd backend
+
+# Run all tests with coverage
+pytest --cov=app --cov-report=html --cov-report=term
+
+# Run specific test types
+pytest tests/unit/                    # Unit tests only
+pytest tests/integration/             # Integration tests only
+pytest tests/e2e/                     # E2E tests only
+
+# Run tests in parallel
+pytest -n auto --cov=app
+
+# Generate detailed coverage report
+pytest --cov=app --cov-report=html
+# Open htmlcov/index.html in browser
+```
+
+#### Frontend Tests
+
+```bash
+cd frontend
+
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with UI
+npm run test:ui
+```
+
+### CI/CD Automation
+
+All tests are automatically run on:
+- Every push to `main` branch
+- All pull requests
+- Daily integration tests at 2 AM UTC
+
+See [`.github/workflows/README.md`](.github/workflows/README.md) for detailed CI/CD documentation.
 
 ## 📊 Database Schema
 
